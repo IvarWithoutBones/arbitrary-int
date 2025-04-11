@@ -45,6 +45,7 @@ pub trait Number: Sized + Copy + Clone + PartialOrd + Ord + PartialEq + Eq {
 
     /// Creates a number from the given value, throwing an error if the value is too large.
     /// This constructor is useful when creating a value from a literal.
+    #[track_caller]
     fn new(value: Self::UnderlyingType) -> Self;
 
     /// Creates a number from the given value, return None if the value is too large
@@ -55,6 +56,7 @@ pub trait Number: Sized + Copy + Clone + PartialOrd + Ord + PartialEq + Eq {
     /// Creates a number from the given value, throwing an error if the value is too large.
     /// This constructor is useful when the value is convertible to T. Use [`Self::new`] for literals.
     #[cfg(not(feature = "const_convert_and_const_trait_impl"))]
+    #[track_caller]
     fn from_<T: Number>(value: T) -> Self;
 
     /// Creates an instance from the given `value`. Unlike the various `new...` functions, this
@@ -293,6 +295,7 @@ macro_rules! uint_impl {
             impl<const BITS: usize> UInt<$type, BITS> {
                 /// Creates an instance. Panics if the given value is outside of the valid range
                 #[inline]
+                #[track_caller]
                 pub const fn new(value: $type) -> Self {
                     assert!(value <= Self::MAX.value);
 
@@ -301,6 +304,7 @@ macro_rules! uint_impl {
 
                 /// Creates an instance. Panics if the given value is outside of the valid range
                 #[inline]
+                #[track_caller]
                 pub const fn from_u8(value: u8) -> Self {
                     if Self::BITS < 8 {
                         assert!(value <= Self::MAX.value as u8);
@@ -310,6 +314,7 @@ macro_rules! uint_impl {
 
                 /// Creates an instance. Panics if the given value is outside of the valid range
                 #[inline]
+                #[track_caller]
                 pub const fn from_u16(value: u16) -> Self {
                     if Self::BITS < 16 {
                         assert!(value <= Self::MAX.value as u16);
@@ -319,6 +324,7 @@ macro_rules! uint_impl {
 
                 /// Creates an instance. Panics if the given value is outside of the valid range
                 #[inline]
+                #[track_caller]
                 pub const fn from_u32(value: u32) -> Self {
                     if Self::BITS < 32 {
                         assert!(value <= Self::MAX.value as u32);
@@ -328,6 +334,7 @@ macro_rules! uint_impl {
 
                 /// Creates an instance. Panics if the given value is outside of the valid range
                 #[inline]
+                #[track_caller]
                 pub const fn from_u64(value: u64) -> Self {
                     if Self::BITS < 64 {
                         assert!(value <= Self::MAX.value as u64);
@@ -337,6 +344,7 @@ macro_rules! uint_impl {
 
                 /// Creates an instance. Panics if the given value is outside of the valid range
                 #[inline]
+                #[track_caller]
                 pub const fn from_u128(value: u128) -> Self {
                     if Self::BITS < 128 {
                         assert!(value <= Self::MAX.value as u128);
@@ -370,6 +378,8 @@ macro_rules! uint_impl {
                 }
 
                 #[deprecated(note = "Use one of the specific functions like extract_u32")]
+                #[track_caller]
+                #[inline]
                 pub const fn extract(value: $type, start_bit: usize) -> Self {
                     assert!(start_bit + BITS <= $type::BITS as usize);
                     // Query MAX to ensure that we get a compiler error if the current definition is bogus (e.g. <u8, 9>)
@@ -490,6 +500,7 @@ macro_rules! uint_impl {
                 /// assert_eq!(u14::new(100).wrapping_div(u14::new(10)), u14::new(10));
                 /// ```
                 #[inline]
+                #[track_caller]
                 #[must_use = "this returns the result of the operation, without modifying the original"]
                 pub const fn wrapping_div(self, rhs: Self) -> Self {
                     let sum = self.value.wrapping_div(rhs.value);
@@ -671,6 +682,7 @@ macro_rules! uint_impl {
                 /// assert_eq!(u14::new(5).saturating_div(u14::new(2)), u14::new(2));
                 /// ```
                 #[inline]
+                #[track_caller]
                 #[must_use = "this returns the result of the operation, without modifying the original"]
                 pub const fn saturating_div(self, rhs: Self) -> Self {
                     // When dividing unsigned numbers, we never need to saturate.
@@ -890,6 +902,7 @@ macro_rules! uint_impl {
                     (Self { value: masked }, overflow || overflow2 )
                 }
 
+                #[track_caller]
                 pub const fn overflowing_div(self, rhs: Self) -> (Self, bool) {
                     let value = self.value.wrapping_div(rhs.value);
                     (Self { value }, false )
@@ -1154,6 +1167,7 @@ where
 {
     type Output = UInt<T, BITS>;
 
+    #[track_caller]
     fn add(self, rhs: Self) -> Self::Output {
         let sum = self.value + rhs.value;
         #[cfg(debug_assertions)]
@@ -1178,6 +1192,7 @@ where
         + BitAndAssign<T>
         + From<u8>,
 {
+    #[track_caller]
     fn add_assign(&mut self, rhs: Self) {
         self.value += rhs.value;
         #[cfg(debug_assertions)]
@@ -1195,6 +1210,7 @@ where
 {
     type Output = UInt<T, BITS>;
 
+    #[track_caller]
     fn sub(self, rhs: Self) -> Self::Output {
         // No need for extra overflow checking as the regular minus operator already handles it for us
         Self {
@@ -1208,6 +1224,7 @@ where
     Self: Number,
     T: Copy + SubAssign<T> + BitAnd<T, Output = T> + BitAndAssign<T> + Sub<T, Output = T>,
 {
+    #[track_caller]
     fn sub_assign(&mut self, rhs: Self) {
         // No need for extra overflow checking as the regular minus operator already handles it for us
         self.value -= rhs.value;
@@ -1222,6 +1239,7 @@ where
 {
     type Output = UInt<T, BITS>;
 
+    #[track_caller]
     fn mul(self, rhs: Self) -> Self::Output {
         // In debug builds, this will perform two bounds checks: Initial multiplication, followed by
         // our bounds check. As wrapping_mul isn't available as a trait bound (in regular Rust), this
@@ -1249,6 +1267,7 @@ where
         + BitAndAssign<T>
         + From<u8>,
 {
+    #[track_caller]
     fn mul_assign(&mut self, rhs: Self) {
         self.value *= rhs.value;
         #[cfg(debug_assertions)]
@@ -1266,6 +1285,7 @@ where
 {
     type Output = UInt<T, BITS>;
 
+    #[track_caller]
     fn div(self, rhs: Self) -> Self::Output {
         // Integer division can only make the value smaller. And as the result is same type as
         // Self, there's no need to range-check or mask
@@ -1280,6 +1300,7 @@ where
     Self: Number,
     T: PartialEq + DivAssign<T>,
 {
+    #[track_caller]
     fn div_assign(&mut self, rhs: Self) {
         self.value /= rhs.value;
     }
@@ -1391,6 +1412,7 @@ where
 {
     type Output = UInt<T, BITS>;
 
+    #[track_caller]
     fn shl(self, rhs: TSHIFTBITS) -> Self::Output {
         // With debug assertions, the << and >> operators throw an exception if the shift amount
         // is larger than the number of bits (in which case the result would always be 0)
@@ -1418,6 +1440,7 @@ where
         + From<u8>,
     TSHIFTBITS: TryInto<usize> + Copy,
 {
+    #[track_caller]
     fn shl_assign(&mut self, rhs: TSHIFTBITS) {
         // With debug assertions, the << and >> operators throw an exception if the shift amount
         // is larger than the number of bits (in which case the result would always be 0)
@@ -1437,6 +1460,7 @@ where
 {
     type Output = UInt<T, BITS>;
 
+    #[track_caller]
     fn shr(self, rhs: TSHIFTBITS) -> Self::Output {
         // With debug assertions, the << and >> operators throw an exception if the shift amount
         // is larger than the number of bits (in which case the result would always be 0)
@@ -1455,6 +1479,7 @@ where
     T: Copy + ShrAssign<TSHIFTBITS> + Sub<T, Output = T> + Shl<usize, Output = T> + From<u8>,
     TSHIFTBITS: TryInto<usize> + Copy,
 {
+    #[track_caller]
     fn shr_assign(&mut self, rhs: TSHIFTBITS) {
         // With debug assertions, the << and >> operators throw an exception if the shift amount
         // is larger than the number of bits (in which case the result would always be 0)
@@ -1812,20 +1837,6 @@ from_native_impl!(UInt(u32), [u8, u16, u32, u64, u128]);
 from_native_impl!(UInt(u64), [u8, u16, u32, u64, u128]);
 from_native_impl!(UInt(u128), [u8, u16, u32, u64, u128]);
 
-pub use aliases::*;
-
-#[allow(non_camel_case_types)]
-#[rustfmt::skip]
-pub(crate) mod aliases {
-    use crate::common::type_alias;
-
-    type_alias!(UInt(u8), (u1, 1), (u2, 2), (u3, 3), (u4, 4), (u5, 5), (u6, 6), (u7, 7));
-    type_alias!(UInt(u16), (u9, 9), (u10, 10), (u11, 11), (u12, 12), (u13, 13), (u14, 14), (u15, 15));
-    type_alias!(UInt(u32), (u17, 17), (u18, 18), (u19, 19), (u20, 20), (u21, 21), (u22, 22), (u23, 23), (u24, 24), (u25, 25), (u26, 26), (u27, 27), (u28, 28), (u29, 29), (u30, 30), (u31, 31));
-    type_alias!(UInt(u64), (u33, 33), (u34, 34), (u35, 35), (u36, 36), (u37, 37), (u38, 38), (u39, 39), (u40, 40), (u41, 41), (u42, 42), (u43, 43), (u44, 44), (u45, 45), (u46, 46), (u47, 47), (u48, 48), (u49, 49), (u50, 50), (u51, 51), (u52, 52), (u53, 53), (u54, 54), (u55, 55), (u56, 56), (u57, 57), (u58, 58), (u59, 59), (u60, 60), (u61, 61), (u62, 62), (u63, 63));
-    type_alias!(UInt(u128), (u65, 65), (u66, 66), (u67, 67), (u68, 68), (u69, 69), (u70, 70), (u71, 71), (u72, 72), (u73, 73), (u74, 74), (u75, 75), (u76, 76), (u77, 77), (u78, 78), (u79, 79), (u80, 80), (u81, 81), (u82, 82), (u83, 83), (u84, 84), (u85, 85), (u86, 86), (u87, 87), (u88, 88), (u89, 89), (u90, 90), (u91, 91), (u92, 92), (u93, 93), (u94, 94), (u95, 95), (u96, 96), (u97, 97), (u98, 98), (u99, 99), (u100, 100), (u101, 101), (u102, 102), (u103, 103), (u104, 104), (u105, 105), (u106, 106), (u107, 107), (u108, 108), (u109, 109), (u110, 110), (u111, 111), (u112, 112), (u113, 113), (u114, 114), (u115, 115), (u116, 116), (u117, 117), (u118, 118), (u119, 119), (u120, 120), (u121, 121), (u122, 122), (u123, 123), (u124, 124), (u125, 125), (u126, 126), (u127, 127));
-}
-
 macro_rules! boolu1 {
     ($($const_keyword:ident)?) => {
         impl $($const_keyword)? From<bool> for u1 {
@@ -1841,7 +1852,7 @@ macro_rules! boolu1 {
                 match value.value() {
                     0 => false,
                     1 => true,
-                    _ => unreachable!(), // TODO: unreachable!() is not const yet
+                    _ => unreachable!(),
                 }
             }
         }
@@ -1853,3 +1864,17 @@ boolu1!();
 
 #[cfg(feature = "const_convert_and_const_trait_impl")]
 boolu1!(const);
+
+pub use aliases::*;
+
+#[allow(non_camel_case_types)]
+#[rustfmt::skip]
+pub(crate) mod aliases {
+    use crate::common::type_alias;
+
+    type_alias!(UInt(u8), (u1, 1), (u2, 2), (u3, 3), (u4, 4), (u5, 5), (u6, 6), (u7, 7));
+    type_alias!(UInt(u16), (u9, 9), (u10, 10), (u11, 11), (u12, 12), (u13, 13), (u14, 14), (u15, 15));
+    type_alias!(UInt(u32), (u17, 17), (u18, 18), (u19, 19), (u20, 20), (u21, 21), (u22, 22), (u23, 23), (u24, 24), (u25, 25), (u26, 26), (u27, 27), (u28, 28), (u29, 29), (u30, 30), (u31, 31));
+    type_alias!(UInt(u64), (u33, 33), (u34, 34), (u35, 35), (u36, 36), (u37, 37), (u38, 38), (u39, 39), (u40, 40), (u41, 41), (u42, 42), (u43, 43), (u44, 44), (u45, 45), (u46, 46), (u47, 47), (u48, 48), (u49, 49), (u50, 50), (u51, 51), (u52, 52), (u53, 53), (u54, 54), (u55, 55), (u56, 56), (u57, 57), (u58, 58), (u59, 59), (u60, 60), (u61, 61), (u62, 62), (u63, 63));
+    type_alias!(UInt(u128), (u65, 65), (u66, 66), (u67, 67), (u68, 68), (u69, 69), (u70, 70), (u71, 71), (u72, 72), (u73, 73), (u74, 74), (u75, 75), (u76, 76), (u77, 77), (u78, 78), (u79, 79), (u80, 80), (u81, 81), (u82, 82), (u83, 83), (u84, 84), (u85, 85), (u86, 86), (u87, 87), (u88, 88), (u89, 89), (u90, 90), (u91, 91), (u92, 92), (u93, 93), (u94, 94), (u95, 95), (u96, 96), (u97, 97), (u98, 98), (u99, 99), (u100, 100), (u101, 101), (u102, 102), (u103, 103), (u104, 104), (u105, 105), (u106, 106), (u107, 107), (u108, 108), (u109, 109), (u110, 110), (u111, 111), (u112, 112), (u113, 113), (u114, 114), (u115, 115), (u116, 116), (u117, 117), (u118, 118), (u119, 119), (u120, 120), (u121, 121), (u122, 122), (u123, 123), (u124, 124), (u125, 125), (u126, 126), (u127, 127));
+}

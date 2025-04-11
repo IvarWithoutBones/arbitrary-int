@@ -126,6 +126,7 @@ macro_rules! impl_extract {
             ///
             #[doc = concat!(" Panics if `start_bit + Self::BITS` doesn't fit within an ", stringify!($type), ", i.e. it is greater than ", stringify!($bits), ".")]
             #[inline]
+            #[track_caller]
             pub const fn $extract_fn(value: $type, start_bit: usize) -> Self {
                 // Query MAX to ensure that we get a compiler error if the current definition is bogus (e.g. <u8, 9>)
                 let _ = Self::MAX;

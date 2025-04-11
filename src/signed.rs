@@ -31,6 +31,7 @@ pub trait SignedNumber: Sized + Copy + Clone + PartialOrd + Ord + PartialEq + Eq
 
     /// Creates a number from the given value, throwing an error if the value is too large.
     /// This constructor is useful when creating a value from a literal.
+    #[track_caller]
     fn new(value: Self::UnderlyingType) -> Self;
 
     /// Creates a number from the given value, return None if the value is too large
@@ -54,6 +55,7 @@ pub trait SignedNumber: Sized + Copy + Clone + PartialOrd + Ord + PartialEq + Eq
     /// Creates a number from the given value, throwing an error if the value is too large.
     /// This constructor is useful when the value is convertible to T. Use [`Self::new`] for literals.
     #[cfg(not(feature = "const_convert_and_const_trait_impl"))]
+    #[track_caller]
     fn from_<T: SignedNumber>(value: T) -> Self;
 
     /// Creates an instance from the given `value`. Unlike the various `new...` functions, this
@@ -299,6 +301,7 @@ macro_rules! int_impl {
 
                 /// Creates an instance. Panics if the given value is outside of the valid range
                 #[inline]
+                #[track_caller]
                 pub const fn new(value: $type) -> Self {
                     assert!(value >= Self::MIN.value && value <= Self::MAX.value);
 
@@ -307,6 +310,7 @@ macro_rules! int_impl {
 
                 /// Creates an instance. Panics if the given value is outside of the valid range
                 #[inline]
+                #[track_caller]
                 pub const fn from_i8(value: i8) -> Self {
                     if Self::BITS < 8 {
                         assert!(value >= Self::MIN.value as i8 && value <= Self::MAX.value as i8);
@@ -316,6 +320,7 @@ macro_rules! int_impl {
 
                 /// Creates an instance. Panics if the given value is outside of the valid range
                 #[inline]
+                #[track_caller]
                 pub const fn from_i16(value: i16) -> Self {
                     if Self::BITS < 16 {
                         assert!(value >= Self::MIN.value as i16 && value <= Self::MAX.value as i16);
@@ -325,6 +330,7 @@ macro_rules! int_impl {
 
                 /// Creates an instance. Panics if the given value is outside of the valid range
                 #[inline]
+                #[track_caller]
                 pub const fn from_i32(value: i32) -> Self {
                     if Self::BITS < 32 {
                         assert!(value >= Self::MIN.value as i32 && value <= Self::MAX.value as i32);
@@ -334,6 +340,7 @@ macro_rules! int_impl {
 
                 /// Creates an instance. Panics if the given value is outside of the valid range
                 #[inline]
+                #[track_caller]
                 pub const fn from_i64(value: i64) -> Self {
                     if Self::BITS < 64 {
                         assert!(value >= Self::MIN.value as i64 && value <= Self::MAX.value as i64);
@@ -343,6 +350,7 @@ macro_rules! int_impl {
 
                 /// Creates an instance. Panics if the given value is outside of the valid range
                 #[inline]
+                #[track_caller]
                 pub const fn from_i128(value: i128) -> Self {
                     if Self::BITS < 128 {
                         assert!(value >= Self::MIN.value as i128 && value <= Self::MAX.value as i128);
@@ -577,6 +585,7 @@ macro_rules! int_impl {
                 /// assert_eq!(i14::MIN.wrapping_div(i14::new(-1)), i14::MIN);
                 /// ```
                 #[inline]
+                #[track_caller]
                 #[must_use = "this returns the result of the operation, without modifying the original"]
                 pub const fn wrapping_div(self, rhs: Self) -> Self {
                     let sum = self.value.wrapping_div(rhs.value);
@@ -1310,6 +1319,7 @@ where
 {
     type Output = Self;
 
+    #[track_caller]
     fn add(self, rhs: Self) -> Self::Output {
         let sum = self.value + rhs.value;
         let value = (sum << Self::UNUSED_BITS) >> Self::UNUSED_BITS;
@@ -1323,6 +1333,7 @@ where
     Self: SignedNumber,
     T: PartialEq + Copy + Add<T, Output = T> + Shl<usize, Output = T> + Shr<usize, Output = T>,
 {
+    #[track_caller]
     fn add_assign(&mut self, rhs: Self) {
         // Delegate to the Add implementation above.
         *self = *self + rhs;
@@ -1336,6 +1347,7 @@ where
 {
     type Output = Self;
 
+    #[track_caller]
     fn sub(self, rhs: Self) -> Self::Output {
         let difference = self.value - rhs.value;
         let value = (difference << Self::UNUSED_BITS) >> Self::UNUSED_BITS;
@@ -1349,6 +1361,7 @@ where
     Self: SignedNumber,
     T: PartialEq + Copy + Sub<T, Output = T> + Shl<usize, Output = T> + Shr<usize, Output = T>,
 {
+    #[track_caller]
     fn sub_assign(&mut self, rhs: Self) {
         // Delegate to the Sub implementation above.
         *self = *self - rhs;
@@ -1362,6 +1375,7 @@ where
 {
     type Output = Self;
 
+    #[track_caller]
     fn mul(self, rhs: Self) -> Self::Output {
         let product = self.value * rhs.value;
         let value = (product << Self::UNUSED_BITS) >> Self::UNUSED_BITS;
@@ -1375,6 +1389,7 @@ where
     Self: SignedNumber,
     T: PartialEq + Copy + Mul<T, Output = T> + Shl<usize, Output = T> + Shr<usize, Output = T>,
 {
+    #[track_caller]
     fn mul_assign(&mut self, rhs: Self) {
         // Delegate to the Mul implementation above.
         *self = *self * rhs;
@@ -1388,6 +1403,7 @@ where
 {
     type Output = Self;
 
+    #[track_caller]
     fn div(self, rhs: Self) -> Self::Output {
         // Unlike the unsigned implementation we do need to account for overflow here,
         // `Self::MIN / -1` is equal to `Self::MAX + 1` and should therefore panic.
@@ -1403,6 +1419,7 @@ where
     Self: SignedNumber,
     T: PartialEq + Copy + Div<T, Output = T> + Shl<usize, Output = T> + Shr<usize, Output = T>,
 {
+    #[track_caller]
     fn div_assign(&mut self, rhs: Self) {
         // Delegate to the Div implementation above.
         *self = *self / rhs;
@@ -1417,6 +1434,7 @@ where
     type Output = Self;
 
     #[inline]
+    #[track_caller]
     fn neg(self) -> Self::Output {
         let negated = -self.value();
         let value = (negated << Self::UNUSED_BITS) >> Self::UNUSED_BITS;
@@ -1502,6 +1520,7 @@ where
 {
     type Output = Self;
 
+    #[track_caller]
     fn not(self) -> Self::Output {
         let value = !self.value;
         Self { value }
@@ -1516,6 +1535,7 @@ where
 {
     type Output = Self;
 
+    #[track_caller]
     fn shl(self, rhs: TSHIFTBITS) -> Self::Output {
         // With debug assertions, the << and >> operators throw an exception if the shift amount
         // is larger than the number of bits (in which case the result would always be 0)
@@ -1537,6 +1557,7 @@ where
     T: Copy + Shl<TSHIFTBITS, Output = T> + Shl<usize, Output = T> + Shr<usize, Output = T>,
     TSHIFTBITS: TryInto<usize> + Copy,
 {
+    #[track_caller]
     fn shl_assign(&mut self, rhs: TSHIFTBITS) {
         // Delegate to the Shl implementation above.
         *self = *self << rhs;
@@ -1551,6 +1572,7 @@ where
 {
     type Output = Self;
 
+    #[track_caller]
     fn shr(self, rhs: TSHIFTBITS) -> Self::Output {
         // With debug assertions, the << and >> operators throw an exception if the shift amount
         // is larger than the number of bits (in which case the result would always be 0)
@@ -1573,6 +1595,7 @@ where
     T: Copy + Shr<TSHIFTBITS, Output = T> + Shl<usize, Output = T> + Shr<usize, Output = T>,
     TSHIFTBITS: TryInto<usize> + Copy,
 {
+    #[track_caller]
     fn shr_assign(&mut self, rhs: TSHIFTBITS) {
         // Delegate to the Shr implementation above.
         *self = *self >> rhs;
