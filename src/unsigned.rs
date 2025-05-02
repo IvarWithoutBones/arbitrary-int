@@ -1,6 +1,6 @@
 use crate::common::{
-    bytes_operation_impl, from_arbitrary_int_impl, from_native_impl, impl_extract, impl_num_traits,
-    impl_step,
+    bytes_operation_impl, forward_operator_for_refs, from_arbitrary_int_impl, from_native_impl,
+    impl_extract, impl_num_traits, impl_step,
 };
 use crate::traits::{sealed::Sealed, Integer, UnsignedInteger};
 use crate::TryNewError;
@@ -1260,328 +1260,328 @@ uint_impl!(
 // Arithmetic implementations
 impl<T, const BITS: usize> Add for UInt<T, BITS>
 where
-    Self: Integer,
-    T: PartialEq
-        + Copy
-        + BitAnd<T, Output = T>
-        + Not<Output = T>
-        + Add<T, Output = T>
-        + Sub<T, Output = T>
-        + From<u8>,
+    Self: Integer<UnderlyingType = T>,
+    T: PartialEq + Copy + BitAnd<T, Output = T> + Add<T, Output = T>,
 {
-    type Output = UInt<T, BITS>;
+    type Output = Self;
 
+    #[inline]
     fn add(self, rhs: Self) -> Self::Output {
-        let sum = self.value + rhs.value;
-        #[cfg(debug_assertions)]
-        if (sum & !Self::MASK) != T::from(0) {
-            panic!("attempt to add with overflow");
-        }
-        Self {
-            value: sum & Self::MASK,
-        }
+        let sum = self.value() + rhs.value();
+        let value = sum & Self::MASK;
+        debug_assert!(sum == value, "attempt to add with overflow");
+        Self { value }
     }
 }
+
+forward_operator_for_refs!(UInt, Add::add = copy);
 
 impl<T, const BITS: usize> AddAssign for UInt<T, BITS>
 where
-    Self: Integer,
-    T: PartialEq
-        + Eq
-        + Not<Output = T>
-        + Copy
-        + AddAssign<T>
-        + BitAnd<T, Output = T>
-        + BitAndAssign<T>
-        + From<u8>,
+    Self: Integer<UnderlyingType = T>,
+    T: PartialEq + Copy + BitAnd<T, Output = T> + Add<T, Output = T>,
 {
+    #[inline]
     fn add_assign(&mut self, rhs: Self) {
-        self.value += rhs.value;
-        #[cfg(debug_assertions)]
-        if (self.value & !Self::MASK) != T::from(0) {
-            panic!("attempt to add with overflow");
-        }
-        self.value &= Self::MASK;
+        let sum = self.value() + rhs.value();
+        let value = sum & Self::MASK;
+        debug_assert!(sum == value, "attempt to add with overflow");
+        self.value = value;
     }
 }
+
+forward_operator_for_refs!(UInt, AddAssign::add_assign = assign);
 
 impl<T, const BITS: usize> Sub for UInt<T, BITS>
 where
-    Self: Integer,
+    Self: Integer<UnderlyingType = T>,
     T: Copy + BitAnd<T, Output = T> + Sub<T, Output = T>,
 {
-    type Output = UInt<T, BITS>;
+    type Output = Self;
 
+    #[inline]
     fn sub(self, rhs: Self) -> Self::Output {
         // No need for extra overflow checking as the regular minus operator already handles it for us
-        Self {
-            value: (self.value - rhs.value) & Self::MASK,
-        }
+        let value = (self.value() - rhs.value()) & Self::MASK;
+        Self { value }
     }
 }
+
+forward_operator_for_refs!(UInt, Sub::sub = copy);
 
 impl<T, const BITS: usize> SubAssign for UInt<T, BITS>
 where
-    Self: Integer,
-    T: Copy + SubAssign<T> + BitAnd<T, Output = T> + BitAndAssign<T> + Sub<T, Output = T>,
+    Self: Integer<UnderlyingType = T>,
+    T: Copy + BitAnd<T, Output = T> + Sub<T, Output = T>,
 {
+    #[inline]
     fn sub_assign(&mut self, rhs: Self) {
         // No need for extra overflow checking as the regular minus operator already handles it for us
-        self.value -= rhs.value;
-        self.value &= Self::MASK;
+        let value = (self.value() - rhs.value()) & Self::MASK;
+        self.value = value;
     }
 }
 
+forward_operator_for_refs!(UInt, SubAssign::sub_assign = assign);
+
 impl<T, const BITS: usize> Mul for UInt<T, BITS>
 where
-    Self: Integer,
-    T: PartialEq + Copy + BitAnd<T, Output = T> + Not<Output = T> + Mul<T, Output = T> + From<u8>,
+    Self: Integer<UnderlyingType = T>,
+    T: PartialEq + Copy + BitAnd<T, Output = T> + Mul<T, Output = T>,
 {
-    type Output = UInt<T, BITS>;
+    type Output = Self;
 
+    #[inline]
     fn mul(self, rhs: Self) -> Self::Output {
         // In debug builds, this will perform two bounds checks: Initial multiplication, followed by
         // our bounds check. As wrapping_mul isn't available as a trait bound (in regular Rust), this
         // is unavoidable
-        let product = self.value * rhs.value;
-        #[cfg(debug_assertions)]
-        if (product & !Self::MASK) != T::from(0) {
-            panic!("attempt to multiply with overflow");
-        }
-        Self {
-            value: product & Self::MASK,
-        }
+        let product = self.value() * rhs.value();
+        let value = product & Self::MASK;
+        debug_assert!(product == value, "attempt to multiply with overflow");
+        Self { value }
     }
 }
+
+forward_operator_for_refs!(UInt, Mul::mul = copy);
 
 impl<T, const BITS: usize> MulAssign for UInt<T, BITS>
 where
-    Self: Integer,
-    T: PartialEq
-        + Eq
-        + Not<Output = T>
-        + Copy
-        + MulAssign<T>
-        + BitAnd<T, Output = T>
-        + BitAndAssign<T>
-        + From<u8>,
+    Self: Integer<UnderlyingType = T>,
+    T: PartialEq + Copy + BitAnd<T, Output = T> + Mul<T, Output = T>,
 {
+    #[inline]
     fn mul_assign(&mut self, rhs: Self) {
-        self.value *= rhs.value;
-        #[cfg(debug_assertions)]
-        if (self.value & !Self::MASK) != T::from(0) {
-            panic!("attempt to multiply with overflow");
-        }
-        self.value &= Self::MASK;
+        let product = self.value() * rhs.value();
+        let value = product & Self::MASK;
+        debug_assert!(product == value, "attempt to multiply with overflow");
+        self.value = value;
     }
 }
+
+forward_operator_for_refs!(UInt, MulAssign::mul_assign = assign);
 
 impl<T, const BITS: usize> Div for UInt<T, BITS>
 where
-    Self: Integer,
-    T: PartialEq + Div<T, Output = T>,
+    Self: Integer<UnderlyingType = T>,
+    T: Div<T, Output = T>,
 {
-    type Output = UInt<T, BITS>;
+    type Output = Self;
 
+    #[inline]
     fn div(self, rhs: Self) -> Self::Output {
         // Integer division can only make the value smaller. And as the result is same type as
         // Self, there's no need to range-check or mask
-        Self {
-            value: self.value / rhs.value,
-        }
+        let value = self.value() / rhs.value();
+        Self { value }
     }
 }
+
+forward_operator_for_refs!(UInt, Div::div = copy);
 
 impl<T, const BITS: usize> DivAssign for UInt<T, BITS>
 where
-    Self: Integer,
-    T: PartialEq + DivAssign<T>,
+    Self: Integer<UnderlyingType = T>,
+    T: Div<T, Output = T>,
 {
+    #[inline]
     fn div_assign(&mut self, rhs: Self) {
-        self.value /= rhs.value;
+        self.value = self.value() / rhs.value();
     }
 }
+
+forward_operator_for_refs!(UInt, DivAssign::div_assign = assign);
 
 impl<T, const BITS: usize> BitAnd for UInt<T, BITS>
 where
-    Self: Integer,
-    T: Copy
-        + BitAnd<T, Output = T>
-        + Sub<T, Output = T>
-        + Shl<usize, Output = T>
-        + Shr<usize, Output = T>
-        + From<u8>,
+    Self: Integer<UnderlyingType = T>,
+    T: BitAnd<T, Output = T>,
 {
-    type Output = UInt<T, BITS>;
+    type Output = Self;
 
+    #[inline]
     fn bitand(self, rhs: Self) -> Self::Output {
-        Self {
-            value: self.value & rhs.value,
-        }
+        let value = self.value() & rhs.value();
+        Self { value }
     }
 }
+
+forward_operator_for_refs!(UInt, BitAnd::bitand = copy);
 
 impl<T, const BITS: usize> BitAndAssign for UInt<T, BITS>
 where
-    T: Copy + BitAndAssign<T> + Sub<T, Output = T> + Shl<usize, Output = T> + From<u8>,
+    Self: Integer<UnderlyingType = T>,
+    T: BitAnd<T, Output = T>,
 {
+    #[inline]
     fn bitand_assign(&mut self, rhs: Self) {
-        self.value &= rhs.value;
+        self.value = self.value() & rhs.value();
     }
 }
+
+forward_operator_for_refs!(UInt, BitAndAssign::bitand_assign = assign);
 
 impl<T, const BITS: usize> BitOr for UInt<T, BITS>
 where
-    T: Copy + BitOr<T, Output = T> + Sub<T, Output = T> + Shl<usize, Output = T> + From<u8>,
+    Self: Integer<UnderlyingType = T>,
+    T: BitOr<T, Output = T>,
 {
-    type Output = UInt<T, BITS>;
+    type Output = Self;
 
+    #[inline]
     fn bitor(self, rhs: Self) -> Self::Output {
-        Self {
-            value: self.value | rhs.value,
-        }
+        let value = self.value() | rhs.value();
+        Self { value }
     }
 }
+
+forward_operator_for_refs!(UInt, BitOr::bitor = copy);
 
 impl<T, const BITS: usize> BitOrAssign for UInt<T, BITS>
 where
-    T: Copy + BitOrAssign<T> + Sub<T, Output = T> + Shl<usize, Output = T> + From<u8>,
+    Self: Integer<UnderlyingType = T>,
+    T: BitOr<T, Output = T>,
 {
+    #[inline]
     fn bitor_assign(&mut self, rhs: Self) {
-        self.value |= rhs.value;
+        self.value = self.value() | rhs.value();
     }
 }
+
+forward_operator_for_refs!(UInt, BitOrAssign::bitor_assign = assign);
 
 impl<T, const BITS: usize> BitXor for UInt<T, BITS>
 where
-    T: Copy + BitXor<T, Output = T> + Sub<T, Output = T> + Shl<usize, Output = T> + From<u8>,
+    Self: Integer<UnderlyingType = T>,
+    T: BitXor<T, Output = T>,
 {
-    type Output = UInt<T, BITS>;
+    type Output = Self;
 
+    #[inline]
     fn bitxor(self, rhs: Self) -> Self::Output {
-        Self {
-            value: self.value ^ rhs.value,
-        }
+        let value = self.value() ^ rhs.value();
+        Self { value }
     }
 }
+
+forward_operator_for_refs!(UInt, BitXor::bitxor = copy);
 
 impl<T, const BITS: usize> BitXorAssign for UInt<T, BITS>
 where
-    T: Copy + BitXorAssign<T> + Sub<T, Output = T> + Shl<usize, Output = T> + From<u8>,
+    Self: Integer<UnderlyingType = T>,
+    T: BitXor<T, Output = T>,
 {
+    #[inline]
     fn bitxor_assign(&mut self, rhs: Self) {
-        self.value ^= rhs.value;
+        self.value = self.value() ^ rhs.value();
     }
 }
+
+forward_operator_for_refs!(UInt, BitXorAssign::bitxor_assign = assign);
 
 impl<T, const BITS: usize> Not for UInt<T, BITS>
 where
-    Self: Integer,
-    T: Copy
-        + BitAnd<T, Output = T>
-        + BitXor<T, Output = T>
-        + Sub<T, Output = T>
-        + Shl<usize, Output = T>
-        + Shr<usize, Output = T>
-        + From<u8>,
+    Self: Integer<UnderlyingType = T>,
+    T: Copy + BitXor<T, Output = T>,
 {
-    type Output = UInt<T, BITS>;
+    type Output = Self;
 
+    #[inline]
     fn not(self) -> Self::Output {
-        Self {
-            value: self.value ^ Self::MASK,
-        }
+        let value = self.value() ^ Self::MASK;
+        Self { value }
     }
 }
 
-impl<T, TSHIFTBITS, const BITS: usize> Shl<TSHIFTBITS> for UInt<T, BITS>
+impl<T, Shift, const BITS: usize> Shl<Shift> for UInt<T, BITS>
 where
-    Self: Integer,
-    T: Copy
-        + BitAnd<T, Output = T>
-        + Shl<TSHIFTBITS, Output = T>
-        + Sub<T, Output = T>
-        + Shl<usize, Output = T>
-        + Shr<usize, Output = T>
-        + From<u8>,
-    TSHIFTBITS: TryInto<usize> + Copy,
+    Self: Integer<UnderlyingType = T>,
+    T: Copy + Shl<Shift, Output = T> + BitAnd<T, Output = T>,
+    Shift: TryInto<usize> + Copy,
 {
-    type Output = UInt<T, BITS>;
+    type Output = Self;
 
-    fn shl(self, rhs: TSHIFTBITS) -> Self::Output {
+    #[inline]
+    fn shl(self, rhs: Shift) -> Self::Output {
         // With debug assertions, the << and >> operators throw an exception if the shift amount
         // is larger than the number of bits (in which case the result would always be 0)
-        #[cfg(debug_assertions)]
-        if rhs.try_into().unwrap_or(usize::MAX) >= BITS {
-            panic!("attempt to shift left with overflow")
-        }
+        debug_assert!(
+            rhs.try_into().unwrap_or(usize::MAX) < BITS,
+            "attempt to shift left with overflow"
+        );
 
-        Self {
-            value: (self.value << rhs) & Self::MASK,
-        }
+        let value = (self.value() << rhs) & Self::MASK;
+        Self { value }
     }
 }
 
-impl<T, TSHIFTBITS, const BITS: usize> ShlAssign<TSHIFTBITS> for UInt<T, BITS>
+forward_operator_for_refs!(UInt, Shl::shl = copy);
+
+impl<T, Shift, const BITS: usize> ShlAssign<Shift> for UInt<T, BITS>
 where
-    Self: Integer,
-    T: Copy
-        + BitAnd<T, Output = T>
-        + BitAndAssign<T>
-        + ShlAssign<TSHIFTBITS>
-        + Sub<T, Output = T>
-        + Shr<usize, Output = T>
-        + Shl<usize, Output = T>
-        + From<u8>,
-    TSHIFTBITS: TryInto<usize> + Copy,
+    Self: Integer<UnderlyingType = T>,
+    T: Copy + Shl<Shift, Output = T> + BitAnd<T, Output = T>,
+    Shift: TryInto<usize> + Copy,
 {
-    fn shl_assign(&mut self, rhs: TSHIFTBITS) {
+    #[inline]
+    fn shl_assign(&mut self, rhs: Shift) {
         // With debug assertions, the << and >> operators throw an exception if the shift amount
         // is larger than the number of bits (in which case the result would always be 0)
-        #[cfg(debug_assertions)]
-        if rhs.try_into().unwrap_or(usize::MAX) >= BITS {
-            panic!("attempt to shift left with overflow")
-        }
-        self.value <<= rhs;
-        self.value &= Self::MASK;
+        debug_assert!(
+            rhs.try_into().unwrap_or(usize::MAX) < BITS,
+            "attempt to shift left with overflow"
+        );
+
+        self.value = (self.value() << rhs) & Self::MASK;
     }
 }
 
-impl<T, TSHIFTBITS, const BITS: usize> Shr<TSHIFTBITS> for UInt<T, BITS>
-where
-    T: Copy + Shr<TSHIFTBITS, Output = T> + Sub<T, Output = T> + Shl<usize, Output = T> + From<u8>,
-    TSHIFTBITS: TryInto<usize> + Copy,
-{
-    type Output = UInt<T, BITS>;
+forward_operator_for_refs!(UInt, ShlAssign::shl_assign = assign);
 
-    fn shr(self, rhs: TSHIFTBITS) -> Self::Output {
+impl<T, Shift, const BITS: usize> Shr<Shift> for UInt<T, BITS>
+where
+    Self: Integer<UnderlyingType = T>,
+    T: Copy + Shr<Shift, Output = T> + BitAnd<T, Output = T>,
+    Shift: TryInto<usize> + Copy,
+{
+    type Output = Self;
+
+    #[inline]
+    fn shr(self, rhs: Shift) -> Self::Output {
         // With debug assertions, the << and >> operators throw an exception if the shift amount
         // is larger than the number of bits (in which case the result would always be 0)
-        #[cfg(debug_assertions)]
-        if rhs.try_into().unwrap_or(usize::MAX) >= BITS {
-            panic!("attempt to shift left with overflow")
-        }
-        Self {
-            value: self.value >> rhs,
-        }
+        debug_assert!(
+            rhs.try_into().unwrap_or(usize::MAX) < BITS,
+            "attempt to shift right with overflow"
+        );
+
+        let value = self.value() >> rhs;
+        Self { value }
     }
 }
 
-impl<T, TSHIFTBITS, const BITS: usize> ShrAssign<TSHIFTBITS> for UInt<T, BITS>
+forward_operator_for_refs!(UInt, Shr::shr = copy);
+
+impl<T, Shift, const BITS: usize> ShrAssign<Shift> for UInt<T, BITS>
 where
-    T: Copy + ShrAssign<TSHIFTBITS> + Sub<T, Output = T> + Shl<usize, Output = T> + From<u8>,
-    TSHIFTBITS: TryInto<usize> + Copy,
+    Self: Integer<UnderlyingType = T>,
+    T: Copy + Shr<Shift, Output = T> + BitAnd<T, Output = T>,
+    Shift: TryInto<usize> + Copy,
 {
-    fn shr_assign(&mut self, rhs: TSHIFTBITS) {
+    #[inline]
+    fn shr_assign(&mut self, rhs: Shift) {
         // With debug assertions, the << and >> operators throw an exception if the shift amount
         // is larger than the number of bits (in which case the result would always be 0)
-        #[cfg(debug_assertions)]
-        if rhs.try_into().unwrap_or(usize::MAX) >= BITS {
-            panic!("attempt to shift left with overflow")
-        }
-        self.value >>= rhs;
+        debug_assert!(
+            rhs.try_into().unwrap_or(usize::MAX) < BITS,
+            "attempt to shift right with overflow"
+        );
+
+        self.value = self.value() >> rhs;
     }
 }
+
+forward_operator_for_refs!(UInt, ShrAssign::shr_assign = assign);
 
 impl<T, const BITS: usize> Display for UInt<T, BITS>
 where

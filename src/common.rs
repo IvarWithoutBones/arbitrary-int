@@ -251,6 +251,76 @@ macro_rules! bytes_operation_impl {
 
 pub(crate) use bytes_operation_impl;
 
+/// Implements operator traits for reference types by forwarding to the implementation for owned values.
+///
+/// For example, for `Int, Add::add = copy` (where copy means this isn't an assignment like `+=`) this will:
+/// - `impl Add<Int> for &Int`
+/// - `impl Add<&Int> for Int`
+/// - `impl Add<&Int> for &Int`
+///
+/// For `Int, AddAssign::add_assign = assign` this will:
+/// - `impl AddAssign<&Int> for Int`
+///
+/// All of these work by calling `impl Add<Self> for Self`, which must already be implemented.
+macro_rules! forward_operator_for_refs {
+    // Catch the assigning operators, for example `+=`.
+    ($type:ident, $operator_trait:tt :: $func:ident = assign) => {
+        // The LHS is a reference. Use the implementation from the bottom most macro arm (but with nicer syntax).
+        crate::common::forward_operator_for_refs!($type, $operator_trait, $func as mut);
+    };
+
+    // Catch the copying operators, for example `+`.
+    ($type:ident, $operator_trait:tt :: $func:ident = copy) => {
+        // The RHS is a reference. The implementation is in the bottom most macro arm.
+        crate::common::forward_operator_for_refs!($type, $operator_trait, $func, Output);
+
+        // The LHS is a reference
+        impl<T, const BITS: usize> $operator_trait<$type<T, BITS>> for &$type<T, BITS>
+        where
+            $type<T, BITS>: Integer + $operator_trait<$type<T, BITS>, Output = $type<T, BITS>>,
+        {
+            type Output = $type<T, BITS>;
+
+            #[inline]
+            fn $func(self, rhs: $type<T, BITS>) -> Self::Output {
+                $operator_trait::$func(*self, rhs)
+            }
+        }
+
+        // Both are references
+        impl<'a, T, const BITS: usize> $operator_trait<&'a $type<T, BITS>> for &$type<T, BITS>
+        where
+            $type<T, BITS>: Integer + $operator_trait<$type<T, BITS>, Output = $type<T, BITS>>,
+        {
+            type Output = $type<T, BITS>;
+
+            #[inline]
+            fn $func(self, rhs: &'a $type<T, BITS>) -> Self::Output {
+                $operator_trait::$func(*self, *rhs)
+            }
+        }
+    };
+
+    // Implementation of the trait where the RHS is a reference. It looks a bit weird because it's shared between `+` and `+=`,
+    // which means it conditionally needs a mutable `Self` reference / an output type.
+    ($type:ident, $operator_trait:tt, $func:ident $(as $mut:tt)? $(, $output:ident)?) => {
+        // The RHS is a reference
+        impl<'a, T, const BITS: usize> $operator_trait<&'a Self> for $type<T, BITS>
+        where
+            Self: Integer + $operator_trait $(<Self, $output = Self>)?,
+        {
+            $(type $output = Self;)?
+
+            #[inline]
+            fn $func($(&$mut)? self, rhs: &'a Self) $(-> Self::$output)? {
+                $operator_trait::$func(self, *rhs)
+            }
+        }
+    };
+}
+
+pub(crate) use forward_operator_for_refs;
+
 macro_rules! impl_step {
     ($type:tt) => {
         #[cfg(feature = "step_trait")]
